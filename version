@@ -1,5 +1,3 @@
-<0.0.2>
-- Minor updates
-- Fixed not showing expiry date
-- Updated missing language information
-- Added more localization keys
+<0.0.3>
+- Added some generated images for all this documents
+- Added mysql query in dbUpdater for items
