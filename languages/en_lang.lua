@@ -16,6 +16,7 @@ Locales["en_lang"] = {
 	Age = 'Age: ',
 	Gender = 'Gender: ',
 	CreationDate = 'Issue Date: ',
+	NotEnoughMoney = 'Not enough Money',
 	RegisterDoc = 'Register Document',
 	GotNewDocument = 'You have registered a new document for ',
 	GotNoDocument = 'You do not have this document, please register one',
@@ -31,5 +32,6 @@ Locales["en_lang"] = {
 	NumberOfDays = 'Enter days',
 	BackButton = 'Back',
 	ShowDocument = 'Show ',
-	PutBack = 'Put Back '
+	PutBack = 'Put Back ',
+	NoNearbyPlayer = 'No nearby players'
 }

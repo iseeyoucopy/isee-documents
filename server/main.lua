@@ -21,7 +21,7 @@ for _, docType in ipairs(documentTypes) do
                 MySQL.query('SELECT * FROM `isee_documents` WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
                     if result and #result > 0 then
                         local doc = result[1]
-                        TriggerClientEvent('isee-documents:client:opendocument', src, docType, doc.firstname, doc.lastname, doc.nickname, doc.job, doc.age, doc.gender, doc.date, doc.picture, doc.days)
+                        TriggerClientEvent('isee-documents:client:opendocument', src, docType, doc.firstname, doc.lastname, doc.nickname, doc.job, doc.age, doc.gender, doc.date, doc.picture, doc.expire_date)
                     else
                         print("No document found for type: " .. tostring(docType))
                         TriggerClientEvent('isee-documents:client:noDocument', src)
@@ -45,7 +45,7 @@ AddEventHandler('isee-documents:server:createDocument', function(docType)
     local price = Config.DocumentTypes[docType].price -- Access the price for the specific document type
 
     -- Create a date string
-    local date = os.date('%Y-%m-%d %H:%M:%S')  -- Standard SQL datetime format
+    local date, newExpiryDate = os.date('%Y-%m-%d %H:%M:%S')  -- Standard SQL datetime format
 
     -- Default picture, assuming you have a default image for each document type in Config
     local picture = Config.DocumentTypes[docType].defaultPicture
@@ -56,12 +56,12 @@ AddEventHandler('isee-documents:server:createDocument', function(docType)
         else
             if Money >= price then
                 if exports.vorp_inventory:canCarryItems(src, 1) and exports.vorp_inventory:canCarryItem(src, docType, 1) then
-                    MySQL.insert('INSERT INTO isee_documents (identifier, charidentifier, doc_type, firstname, lastname, nickname, job, age, gender, date, picture) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    MySQL.insert('INSERT INTO isee_documents (identifier, charidentifier, doc_type, firstname, lastname, nickname, job, age, gender, date, picture, expire_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     {
                         Character.identifier, charidentifier, docType,
                         Character.firstname, Character.lastname, Character.nickname,
                         Character.jobLabel, Character.age, Character.gender,
-                        date, picture
+                        date, picture, newExpiryDate
                     }, function()
                         Character.removeCurrency(0, price)
                         VORPcore.NotifyLeft(src, _U('BoughtDocument') .. price .. '$', "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
@@ -170,7 +170,7 @@ AddEventHandler('isee-documents:server:changeDocumentPhoto', function(docType, p
                 VORPcore.NotifyLeft(src, _U('NotEnoughMoney'), "", Config.Textures.cross[1], Config.Textures.cross[2], 4000)
             end
         else
-            VORPcore.NotifyLeft(src, _U('NoDocumentFound'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
+            VORPcore.NotifyLeft(src, _U('GotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
         end
     end)
 end)
@@ -186,7 +186,7 @@ AddEventHandler('isee-documents:server:showDocumentClosestPlayer', function(docT
         if result and #result > 0 then
             local doc = result[1]
             local closestPlayer, closestDistance = nil, math.huge
-
+            local newExpiryDate = os.date('%Y-%m-%d %H:%M:%S') 
             for _, playerId in ipairs(GetPlayers()) do
                 local playerPedId = GetPlayerPed(playerId)
                 local playerCoords = GetEntityCoords(playerPedId)
@@ -196,14 +196,14 @@ AddEventHandler('isee-documents:server:showDocumentClosestPlayer', function(docT
                     closestPlayer, closestDistance = playerId, distance
                 end
             end
-            print("Doc fetched with expire date:", doc.expire_date) 
+            print("Doc fetched with expire date:", newExpiryDate) 
             if closestPlayer then
                 TriggerClientEvent('isee-documents:client:showdocument', closestPlayer, docType, doc.firstname, doc.lastname, doc.nickname, doc.job, doc.age, doc.gender, doc.date, doc.picture, doc.expire_date)
             else
                 VORPcore.NotifyLeft(src, _U('NoNearbyPlayer'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
             end
         else
-            VORPcore.NotifyLeft(src, "No document found", "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
+            VORPcore.NotifyLeft(src, _U('GotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
         end
     end)
 end)
@@ -217,14 +217,18 @@ AddEventHandler('isee-documents:server:updateExpiryDate', function(docType, days
 
     local extendChangePrice = Config.DocumentTypes[docType].extendPrice
 
-    local date = os.date('%Y-%m-%d %H:%M:%S')
     -- Check if the document exists in the database
     MySQL.query('SELECT * FROM isee_documents WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
         
         if result and result[1] then
             if Money >= extendChangePrice then
-                local days = tonumber(daysToAdd) or 0
-                local newExpiryDate = os.date('%Y-%m-%d', os.time() + (days * 86400))
+                local days = tonumber(daysToAdd) or 0  -- Convert daysToAdd to number, default to 0
+                local currentTime = os.time()          -- Get the current time in seconds since the epoch
+                local newExpiryDate = os.date('%Y-%m-%d %H:%M:%S', currentTime + (days * 86400))  -- Compute new expiry date with time
+                
+                -- Debug output to console
+                print("Added days: " .. days .. ", New Expiry Date with Time: " .. newExpiryDate)
+                
                 MySQL.update('UPDATE isee_documents SET expire_date = ? WHERE charidentifier = ? AND doc_type = ?',
                               {newExpiryDate, charidentifier, docType}, function(affectedRows)
                     if affectedRows > 0 then
@@ -238,9 +242,7 @@ AddEventHandler('isee-documents:server:updateExpiryDate', function(docType, days
                 VORPcore.NotifyLeft(src, _U('NotEnoughMoney'), "", Config.Textures.cross[1], Config.Textures.cross[2], 4000)
             end
         else
-            VORPcore.NotifyLeft(src, "No document found", "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
+            VORPcore.NotifyLeft(src, _U('GotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
         end
     end)
 end)
-
-

@@ -23,6 +23,7 @@ ISEEDocumentsMainMenu = FeatherMenu:RegisterMenu('document:mainmenu', {
     },
     draggable = true
 })
+
 AddEventHandler('isee-documents:MenuClose', function()
     Citizen.CreateThread(function()   -- Ensure this runs in a separate thread
         if not inmenu then return end -- Exit if not in a menu
@@ -361,7 +362,6 @@ AddEventHandler('isee-documents:client:showdocument',
 
             -- Register dynamic text elements
             local elements = {
-                { label = 'DocType',      value = docType },
                 { label = 'Firstname',    value = firstname },
                 { label = 'Lastname',     value = lastname },
                 { label = 'Nickname',     value = nickname },
@@ -374,7 +374,7 @@ AddEventHandler('isee-documents:client:showdocument',
 
             for _, elem in ipairs(elements) do
                 DocumentPage:RegisterElement('subheader', {
-                    value = _U(elem.label) .. (elem.value or 'Unknown') .. '.',
+                    value = _U(elem.label) .. (elem.value or 'Unknown'),
                     style = {}
                 })
             end
@@ -399,15 +399,14 @@ AddEventHandler('isee-documents:client:opendocument',
     function(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
         -- Only open a new ID document page if it's not already open
         if not MyidOpen then
-            -- Create or reset the page for viewing ID
             local DocumentPage = ISEEDocumentsMainMenu:RegisterPage("isee-documents-open-ID")
-            -- Ensure the page registration and element addition is successful
             if DocumentPage then
                 print("Document page created successfully.")
             else
                 print("Failed to create document page.")
+                return
             end
-            -- Register generic elements that do not change
+
             DocumentPage:RegisterElement('header', {
                 value = Config.DocumentTypes[docType].displayName,
                 slot = 'header'
@@ -432,7 +431,7 @@ AddEventHandler('isee-documents:client:opendocument',
             }
 
             for _, elem in ipairs(elements) do
-                DocumentPage:RegisterElement('textdisplay', {
+                DocumentPage:RegisterElement('subheader', {
                     value = _U(elem.label) .. (elem.value or 'Unknown'),
                     style = {}
                 })
@@ -440,13 +439,13 @@ AddEventHandler('isee-documents:client:opendocument',
 
             -- Register actions
             DocumentPage:RegisterElement('button', {
-                label = _U('ShowDocument') .. Config.DocumentTypes[docType].displayName,
+                label = _U('ShowDocument'),
                 style = { ['border-radius'] = '6px' },
             }, function()
                 TriggerServerEvent('isee-documents:server:showDocumentClosestPlayer', docType)
             end)
             DocumentPage:RegisterElement('button', {
-                label = _U('PutBack') .. Config.DocumentTypes[docType].displayName,
+                label = _U('PutBack'),
                 style = { ['border-radius'] = '6px' },
             }, function()
                 ISEEDocumentsMainMenu:Close({
