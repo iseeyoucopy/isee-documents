@@ -19,7 +19,7 @@ CreateThread(function()
     MySQL.query.await([[
         ALTER TABLE `isee_documents`
         ADD PRIMARY KEY (`identifier`, `charidentifier`, `doc_type`);
-    ]])
+        ]])
 
     -- Commit any pending transactions to ensure changes are saved
     MySQL.query.await("COMMIT;")
