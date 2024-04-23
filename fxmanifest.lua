@@ -18,6 +18,7 @@ client_scripts {
 server_scripts {
 	'@oxmysql/lib/MySQL.lua',
 	'server/versioncheck.lua',
+	'server/dbUpdater.lua',
 	'server/main.lua',
 }
 
@@ -27,4 +28,4 @@ dependency {
 	'feather-menu',
 }
 
-version '0.0.1'
+version '0.0.2'
