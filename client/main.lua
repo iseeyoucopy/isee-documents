@@ -1,43 +1,41 @@
-BccUtils = exports['bcc-utils'].initiate()
 FeatherMenu =  exports['feather-menu'].initiate()
+
+BccUtils = exports['bcc-utils'].initiate()
+
 
 local CreatedBlip = {}
 local CreatedNpc = {}
 local MyidOpen = false
-local inmenu = false
-local documentMainMenu
+local documentMainMenu 
 
-ISEEDocumentsMainMenu = FeatherMenu:RegisterMenu('document:mainmenu', {
-    top = '40%',
-    left = '20%',
+local ISEEDocumentsMainMenu = FeatherMenu:RegisterMenu('document:mainmenu', {
+    top = '40%',  -- Adjust top position as needed
+    right = '20px',  -- Position on the right side with 20px from the edge
     ['720width'] = '500px',
     ['1080width'] = '600px',
     ['2kwidth'] = '700px',
     ['4kwidth'] = '900px',
-    style = {},
+    style = {
+        ['background'] = 'linear-gradient(to bottom right, #514740, #261a0f)',
+        ['border'] = '2px solid #d6c7b7',
+        ['border-radius'] = '15px',
+        ['box-shadow'] = '0px 8px 16px rgba(0, 0, 0, 0.5)',
+        ['color'] = '#d6c7b7',
+        ['font-family'] = 'Georgia, serif',
+        ['font-size'] = '18px',
+        ['padding'] = '20px',  -- Add padding around the menu
+        ['overflow'] = 'hidden',
+        ['z-index'] = '9999',
+    },
     contentslot = {
         style = {
-            ['height'] = '300px',
-            ['min-height'] = '300px'
+            ['background'] = 'none',
+            ['border-radius'] = '10px',
+            ['overflow-y'] = 'auto',
         }
     },
     draggable = true
 })
-
-AddEventHandler('isee-documents:MenuClose', function()
-    Citizen.CreateThread(function()   -- Ensure this runs in a separate thread
-        if not inmenu then return end -- Exit if not in a menu
-        while inmenu do
-            Wait(5)
-            if IsControlJustReleased(0, 0x156F7119) then -- B (space) to exit
-                if ISEEDocumentsMainMenu and ISEEDocumentsMainMenu.isOpen then
-                    ISEEDocumentsMainMenu:Close()
-                    inmenu = false
-                end
-            end
-        end
-    end)
-end)
 
 Citizen.CreateThread(function()
     local DocumentMenuPrompt = BccUtils.Prompts:SetupPromptGroup()
@@ -67,18 +65,25 @@ Citizen.CreateThread(function()
             if dist < 2 then
                 DocumentMenuPrompt:ShowGroup(_U('Licenses'))
                 if documentprompt:HasCompleted() then
-                    TriggerEvent('isee:documents:openmenu')
+                    OpenMenu()
                 end
             end
         end
     end
 end)
 
-AddEventHandler('isee:documents:openmenu', function()
-    TriggerEvent('isee-documents:MenuClose')
-    ISEEDocumentsMainMenu:Close()
+-- Function to open the main menu
+function openMainMenu()
+    if documentMainMenu then
+        documentMainMenu:RouteTo()
+    else
+        print("Error: documentMainMenu is not initialized.")
+    end
+end
+
+function OpenMenu()
     -- Register the main page for documents
-    documentMainMenu = ISEEDocumentsMainMenu:RegisterPage("isee-documents:MainPage")
+    documentMainMenu = ISEEDocumentsMainMenu:RegisterPage("Main:Page")
     documentMainMenu:RegisterElement('header', {
         value = _U('Licenses'), -- Registration
         slot = 'header',
@@ -94,7 +99,7 @@ AddEventHandler('isee:documents:openmenu', function()
             label = settings.displayName,
             style = {}
         }, function()
-            TriggerEvent('isee:documents:opensubmenu', docType)
+            OpenDocumentSubMenu(docType)
         end)
     end
 
@@ -109,19 +114,10 @@ AddEventHandler('isee:documents:openmenu', function()
     ISEEDocumentsMainMenu:Open({
         startupPage = documentMainMenu
     })
-end)
-
--- Function to open the main menu
-function openMainMenu()
-    if documentMainMenu then
-        documentMainMenu:RouteTo()
-    else
-        print("Error: documentMainMenu is not initialized.")
-    end
 end
 
-AddEventHandler('isee:documents:opensubmenu', function(docType, daysToAdd)
-    local documentSubMenu = ISEEDocumentsMainMenu:RegisterPage("isee-documents-submenu-" .. docType)
+function OpenDocumentSubMenu(docType)
+    local documentSubMenu = ISEEDocumentsMainMenu:RegisterPage("submenu:" .. docType)
 
     -- Add a header to the submenu showing the document type
     documentSubMenu:RegisterElement('header', {
@@ -144,8 +140,7 @@ AddEventHandler('isee:documents:opensubmenu', function(docType, daysToAdd)
             label = _U('ChangePicture') .. " - $" .. Config.DocumentTypes[docType].changePhotoPrice,
             style = {},
         }, function()
-            -- This gets triggered whenever the button is clicked
-            TriggerEvent('isee-documents:client:changephoto', docType)
+            ChangeDocumentPhoto(docType)
         end)
     end
 
@@ -157,17 +152,15 @@ AddEventHandler('isee:documents:opensubmenu', function(docType, daysToAdd)
         TriggerEvent('isee-documents:client:reissueDocument', docType)
     end)
 
+    -- Conditional button for extending the expiry date
     if docType ~= 'idcard' and Config.DocumentTypes[docType] then
         local docConfig = Config.DocumentTypes[docType]
         documentSubMenu:RegisterElement('button', {
             label = _U('ExtendExpiry') .. " - $" .. docConfig.reissuePrice,
             style = {},
         }, function()
-            -- Trigger an event with docType to specify the number of extra days
-            TriggerEvent('isee-documents:client:addexpiry', docType)
+            AddExpiryDate(docType)
         end)
-    else
-        print("Attempted to extend expiry for unsupported or undefined docType:", docType)
     end
 
     -- Register a back button on the submenu that routes to the main menu
@@ -177,15 +170,6 @@ AddEventHandler('isee:documents:opensubmenu', function(docType, daysToAdd)
     }, function()
         openMainMenu() -- This function will call RouteTo on the main menu
     end)
-
-    -- Assuming you have some mechanism to open the submenu
-    function openSubMenu()
-        if documentSubMenu then
-            documentSubMenu:RouteTo()
-        else
-            print("Error: documentSubMenu is not initialized.")
-        end
-    end
 
     -- Footer elements outside the loop
     documentSubMenu:RegisterElement('bottomline', {
@@ -198,11 +182,11 @@ AddEventHandler('isee:documents:opensubmenu', function(docType, daysToAdd)
     ISEEDocumentsMainMenu:Open({
         startupPage = documentSubMenu
     })
-end)
+end
 
-RegisterNetEvent('isee-documents:client:changephoto')
-AddEventHandler('isee-documents:client:changephoto', function(docType)
-    local ChangePhotoPage = ISEEDocumentsMainMenu:RegisterPage('document_change_photo_page')
+-- Function to handle changing photo in documents menu
+function ChangeDocumentPhoto(docType)
+    local ChangePhotoPage = ISEEDocumentsMainMenu:RegisterPage('change:photo')
     local photoLink = nil -- Variable to store the photo URL
 
     ChangePhotoPage:RegisterElement('header', {
@@ -233,7 +217,7 @@ AddEventHandler('isee-documents:client:changephoto', function(docType)
     }, function()
         if docType and photoLink then
             TriggerServerEvent('isee-documents:server:changeDocumentPhoto', docType, photoLink)
-            openSubMenu()
+            OpenDocumentSubMenu(docType)
         else
             print("Error: Missing document type or photo URL.")
         end
@@ -244,17 +228,17 @@ AddEventHandler('isee-documents:client:changephoto', function(docType)
         label = _U('BackButton'),
         style = {}
     }, function()
-        openSubMenu() -- This function will call RouteTo on previous menu
+        OpenDocumentSubMenu(docType) -- This function will call RouteTo on previous menu
     end)
 
     ISEEDocumentsMainMenu:Open({
         startupPage = ChangePhotoPage
     })
-end)
+end
 
-RegisterNetEvent('isee-documents:client:addexpiry')
-AddEventHandler('isee-documents:client:addexpiry', function(docType)
-    local inputPage = ISEEDocumentsMainMenu:RegisterPage("isee-documents-input-expiry")
+-- Function to handle adding expiry date in documents menu
+function AddExpiryDate(docType)
+    local inputPage = ISEEDocumentsMainMenu:RegisterPage("input:expiry")
     local daysToAdd = nil -- Variable to store the number of days
 
     inputPage:RegisterElement('header', {
@@ -268,11 +252,7 @@ AddEventHandler('isee-documents:client:addexpiry', function(docType)
         placeholder = _U('NumberOfDays'),
         inputType = 'number',
         slot = 'content',
-        style = {
-            ['border-radius'] = '6px',
-            ['background-color'] = '#E8E8E8',
-            ['color'] = 'black'
-        },
+        style = {},
     }, function(data)
         if tonumber(data.value) and tonumber(data.value) > 0 then
             daysToAdd = data.value
@@ -290,7 +270,7 @@ AddEventHandler('isee-documents:client:addexpiry', function(docType)
     }, function()
         if daysToAdd then
             TriggerServerEvent('isee-documents:server:updateExpiryDate', docType, daysToAdd)
-            ISEEDocumentsMainMenu:Close()
+            OpenDocumentSubMenu(docType)
         else
             print("Error: Number of days not set or invalid.")
         end
@@ -301,18 +281,151 @@ AddEventHandler('isee-documents:client:addexpiry', function(docType)
         label = _U('BackButton'),
         style = {}
     }, function()
-        openSubMenu() -- This function will call RouteTo on previous menu
+        OpenDocumentSubMenu(docType) -- This function will call RouteTo on previous menu
     end)
 
     ISEEDocumentsMainMenu:Open({
         startupPage = inputPage
     })
+end
+
+-- Function to handle displaying a document
+function ShowDocument(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
+    -- Only open a new ID document page if it's not already open
+    if not MyidOpen then
+        -- Create or reset the page for viewing ID
+        local DocumentPageShow = ISEEDocumentsMainMenu:RegisterPage("show:document")
+        -- Register generic elements that do not change
+        DocumentPageShow:RegisterElement('header', {
+            value = Config.DocumentTypes[docType].displayName,
+            slot = 'header'
+        })
+        DocumentPageShow:RegisterElement('line', {
+            slot = 'header'
+        })
+        DocumentPageShow:RegisterElement("html", {
+            slot = 'header',
+            value = [[<img width="200px" height="200px" style="margin: 0 auto;" src="]] ..
+                (picture or 'default_picture_url_here') .. [[" />]]
+        })
+
+        -- Register HTML element
+        DocumentPageShow:RegisterElement("html", {
+            value = {
+                [[
+                <div style="text-align: center; margin-top: 10px;">
+                    <p><b>]] .. _U('Firstname').. [[</b> ]] .. (firstname or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Lastname').. [[</b> ]] .. (lastname or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Nickname').. [[</b> ]] .. (nickname or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Job').. [[</b> ]] .. (job or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Age').. [[</b> ]] .. (age or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Gender').. [[</b> ]] .. (gender or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('CreationDate').. [[</b> ]] .. (date or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('ExpiryDate').. [[</b> ]] .. (expire_date or 'N/A') .. [[</p>
+                </div>
+                ]]
+            }
+        })
+
+        -- Flag the document as open and display it
+        MyidOpen = true
+        ISEEDocumentsMainMenu:Open({ startupPage = DocumentPageShow })
+    else
+        -- Simply close the document if it's already open (toggle functionality)
+        ISEEDocumentsMainMenu:Close()
+        MyidOpen = false
+    end
+end
+
+-- Function to handle opening a document
+function OpenDocument(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
+    -- Only open a new ID document page if it's not already open
+    if not MyidOpen then
+        local DocumentPageOpen = ISEEDocumentsMainMenu:RegisterPage("open:document")
+
+        DocumentPageOpen:RegisterElement('header', {
+            value = Config.DocumentTypes[docType].displayName,
+            slot = 'header'
+        })
+        DocumentPageOpen:RegisterElement('line', { slot = 'header' })
+        DocumentPageOpen:RegisterElement("html", {
+            slot = 'header',
+            value = [[<img width="200px" height="200px" style="margin: 0 auto;" src="]] ..
+                (picture or 'default_picture_url_here') .. [[" />]]
+        })
+
+        -- Register HTML element
+        DocumentPageOpen:RegisterElement("html", {
+            value = {
+                [[
+                <div style="text-align: center; margin-top: 10px;">
+                    <p><b>]] .. _U('Firstname').. [[</b> ]] .. (firstname or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Lastname').. [[</b> ]] .. (lastname or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Nickname').. [[</b> ]] .. (nickname or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Job').. [[</b> ]] .. (job or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Age').. [[</b> ]] .. (age or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('Gender').. [[</b> ]] .. (gender or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('CreationDate').. [[</b> ]] .. (date or 'Unknown') .. [[</p>
+                    <p><b>]] .. _U('ExpiryDate').. [[</b> ]] .. (expire_date or 'N/A') .. [[</p>
+                </div>
+                ]]
+            }
+        })
+
+        -- Register actions
+        DocumentPageOpen:RegisterElement('button', {
+            label = _U('ShowDocument'),
+            style = { ['border-radius'] = '6px' },
+        }, function()
+            TriggerServerEvent('isee-documents:server:showDocumentClosestPlayer', docType)
+        end)
+        DocumentPageOpen:RegisterElement('button', {
+            label = _U('PutBack'),
+            style = { ['border-radius'] = '6px' },
+        }, function()
+            ISEEDocumentsMainMenu:Close({
+            })
+        end)
+
+        -- Flag the document as open and display it
+        MyidOpen = true
+        ISEEDocumentsMainMenu:Open({ startupPage = DocumentPageOpen })
+    else
+        -- Simply close the document if it's already open (toggle functionality)
+        ISEEDocumentsMainMenu:Close()
+        MyidOpen = false
+    end
+end
+
+-- Register network event handler
+RegisterNetEvent('isee-documents:opensubmenu')
+AddEventHandler('isee:documents:opensubmenu', function(docType)
+    OpenDocumentSubMenu(docType)
+end)
+
+RegisterNetEvent('isee-documents:client:opendocument')
+AddEventHandler('isee-documents:client:opendocument', function(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
+    OpenDocument(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
+end)
+
+RegisterNetEvent('isee-documents:client:addexpiry')
+AddEventHandler('isee-documents:client:addexpiry', function(docType)
+    AddExpiryDate(docType)
+end)
+
+RegisterNetEvent('isee-documents:client:showdocument')
+AddEventHandler('isee-documents:client:showdocument', function(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
+    ShowDocument(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
+end)
+
+RegisterNetEvent('isee-documents:client:noDocument')
+AddEventHandler('isee-documents:client:noDocument', function()
+    print("No document found for this type.")
 end)
 
 RegisterNetEvent('isee-documents:client:createDocument')
 AddEventHandler('isee-documents:client:createDocument', function(docType)
     if docType then
-        --print("Triggering document create for type:", docType)
         TriggerServerEvent('isee-documents:server:createDocument', docType)
     else
         print("Error: docType is missing.")
@@ -322,7 +435,6 @@ end)
 RegisterNetEvent('isee-documents:client:reissueDocument')
 AddEventHandler('isee-documents:client:reissueDocument', function(docType)
     if docType then
-        --print("Triggering document reissue for type:", docType)
         TriggerServerEvent('isee-documents:server:reissueDocument', docType)
     else
         print("Error: docType is missing.")
@@ -332,135 +444,17 @@ end)
 RegisterNetEvent('isee-documents:client:revokeDocument')
 AddEventHandler('isee-documents:client:revokeDocument', function(docType)
     if docType then
-        --print("Triggering document reissue for type:", docType)
         TriggerServerEvent('isee-documents:server:revokeDocument', docType)
     else
         print("Error: docType is missing.")
     end
 end)
 
-RegisterNetEvent('isee-documents:client:showdocument')
-AddEventHandler('isee-documents:client:showdocument',
-    function(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
-        -- Only open a new ID document page if it's not already open
-        if not MyidOpen then
-            -- Create or reset the page for viewing ID
-            local DocumentPage = ISEEDocumentsMainMenu:RegisterPage("isee-documents-open-ID")
-            -- Register generic elements that do not change
-            DocumentPage:RegisterElement('header', {
-                value = Config.DocumentTypes[docType].displayName,
-                slot = 'header'
-            })
-            DocumentPage:RegisterElement('line', {
-                slot = 'header'
-            })
-            DocumentPage:RegisterElement("html", {
-                slot = 'header',
-                value = [[<img width="200px" height="200px" style="margin: 0 auto;" src="]] ..
-                    (picture or 'default_picture_url_here') .. [[" />]]
-            })
-
-            -- Register dynamic text elements
-            local elements = {
-                { label = 'Firstname',    value = firstname },
-                { label = 'Lastname',     value = lastname },
-                { label = 'Nickname',     value = nickname },
-                { label = 'Job',          value = job },
-                { label = 'Age',          value = age },
-                { label = 'Gender',       value = gender },
-                { label = 'CreationDate', value = date },
-                { label = 'ExpiryDate',   value = expire_date or 'N/A' } -- Include expiry date or show 'N/A' if not available
-            }
-
-            for _, elem in ipairs(elements) do
-                DocumentPage:RegisterElement('subheader', {
-                    value = _U(elem.label) .. (elem.value or 'Unknown'),
-                    style = {}
-                })
-            end
-
-            -- Flag the document as open and display it
-            MyidOpen = true
-            ISEEDocumentsMainMenu:Open({ startupPage = DocumentPage })
-        else
-            -- Simply close the document if it's already open (toggle functionality)
-            ISEEDocumentsMainMenu:Close()
-            MyidOpen = false
-        end
-    end)
-
-RegisterNetEvent('isee-documents:client:noDocument')
-AddEventHandler('isee-documents:client:noDocument', function()
-    print("No document found for this type.")
+RegisterNetEvent('isee-documents:client:changephoto')
+AddEventHandler('isee-documents:client:changephoto', function(docType)
+    ChangeDocumentPhoto(docType)
 end)
 
-RegisterNetEvent('isee-documents:client:opendocument')
-AddEventHandler('isee-documents:client:opendocument',
-    function(docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
-        -- Only open a new ID document page if it's not already open
-        if not MyidOpen then
-            local DocumentPage = ISEEDocumentsMainMenu:RegisterPage("isee-documents-open-ID")
-            if DocumentPage then
-                print("Document page created successfully.")
-            else
-                print("Failed to create document page.")
-                return
-            end
-
-            DocumentPage:RegisterElement('header', {
-                value = Config.DocumentTypes[docType].displayName,
-                slot = 'header'
-            })
-            DocumentPage:RegisterElement('line', { slot = 'header' })
-            DocumentPage:RegisterElement("html", {
-                slot = 'header',
-                value = [[<img width="200px" height="200px" style="margin: 0 auto;" src="]] ..
-                    (picture or 'default_picture_url_here') .. [[" />]]
-            })
-
-            -- Register dynamic text elements
-            local elements = {
-                { label = 'Firstname',    value = firstname },
-                { label = 'Lastname',     value = lastname },
-                { label = 'Nickname',     value = nickname },
-                { label = 'Job',          value = job },
-                { label = 'Age',          value = age },
-                { label = 'Gender',       value = gender },
-                { label = 'CreationDate', value = date },
-                { label = 'ExpiryDate',   value = expire_date or 'N/A' } -- Include expiry date or show 'N/A' if not available
-            }
-
-            for _, elem in ipairs(elements) do
-                DocumentPage:RegisterElement('subheader', {
-                    value = _U(elem.label) .. (elem.value or 'Unknown'),
-                    style = {}
-                })
-            end
-
-            -- Register actions
-            DocumentPage:RegisterElement('button', {
-                label = _U('ShowDocument'),
-                style = { ['border-radius'] = '6px' },
-            }, function()
-                TriggerServerEvent('isee-documents:server:showDocumentClosestPlayer', docType)
-            end)
-            DocumentPage:RegisterElement('button', {
-                label = _U('PutBack'),
-                style = { ['border-radius'] = '6px' },
-            }, function()
-                ISEEDocumentsMainMenu:Close({
-                })
-            end)
-
-            -- Flag the document as open and display it
-            MyidOpen = true
-            ISEEDocumentsMainMenu:Open({ startupPage = DocumentPage })
-        else
-            -- Simply close the document if it's already open (toggle functionality)
-            ISEEDocumentsMainMenu:Close()
-            MyidOpen = false
-        end
-    end)
 
 ---- CleanUp on Resource Restart
 RegisterNetEvent('onResourceStop', function(resource)

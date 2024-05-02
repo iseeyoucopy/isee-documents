@@ -15,11 +15,8 @@ CreateThread(function()
             `expire_date` date DEFAULT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
     ]])
-
-    MySQL.query.await([[
-        ALTER TABLE `isee_documents`
-        ADD PRIMARY KEY (`identifier`, `charidentifier`, `doc_type`);
-        ]])
+    
+    MySQL.query.await("ALTER TABLE `isee_documents` ADD PRIMARY KEY IF NOT EXISTS (`identifier`, `charidentifier`, `doc_type`)")
 
     -- Commit any pending transactions to ensure changes are saved
     MySQL.query.await("COMMIT;")

@@ -1,12 +1,13 @@
 Locales["ro_lang"] = {
 	PromptName = 'Inregistrare',
-	BlipName = 'Licentiator',
+	BlipName = 'Oficiul de inregistrare',
 	Licenses = 'Oficiul de inregistrare',
 	DocumentLost = 'Document pierdut ',
 	ChangePicture = 'Schimba fotografia documentului ',
+	ChangedPicture = 'Fotografia a fost schimabata pentru ',
 	InputPhotolink = 'Adauga link ',
 	PastePhotoLink = "Lipeste link-ul direct catre poza",
-	Submit = "Submit",
+	Submit = "Trimite",
 	CloseMenu = 'Inchide Meniul',
 	Confirm = 'Confirma',
 	Firstname = 'Prenume: ',
@@ -33,6 +34,6 @@ Locales["ro_lang"] = {
 	BackButton = 'Inapoi',
 	ShowDocument = 'Arata ',
 	PutBack = 'Pune la loc ',
-	NoNearbyPlayer = 'Nici un jucator in apropiere'
+	NoNearbyPlayer = 'Nici un jucator in apropiere',
+	PocketFull = 'Ai deja acest document in buzunar',
  }
- 

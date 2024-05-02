@@ -33,6 +33,7 @@ for _, docType in ipairs(documentTypes) do
         else
             print("Error: User not found for source.")
         end
+        exports.vorp_inventory:closeInventory(src)
     end)
 end
 
@@ -196,7 +197,7 @@ AddEventHandler('isee-documents:server:showDocumentClosestPlayer', function(docT
                     closestPlayer, closestDistance = playerId, distance
                 end
             end
-            print("Doc fetched with expire date:", newExpiryDate) 
+
             if closestPlayer then
                 TriggerClientEvent('isee-documents:client:showdocument', closestPlayer, docType, doc.firstname, doc.lastname, doc.nickname, doc.job, doc.age, doc.gender, doc.date, doc.picture, doc.expire_date)
             else

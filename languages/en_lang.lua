@@ -4,6 +4,7 @@ Locales["en_lang"] = {
 	Licenses = 'Registration Office',
 	DocumentLost = 'Document Lost',
 	ChangePicture = 'Change Document Photo',
+	ChangedPicture = 'Picture has been changed for ',
 	InputPhotolink = 'Enter Photo URL',
 	PastePhotoLink = "Paste the direct link here!",
 	Submit = "Submit",
@@ -33,5 +34,6 @@ Locales["en_lang"] = {
 	BackButton = 'Back',
 	ShowDocument = 'Show ',
 	PutBack = 'Put Back ',
-	NoNearbyPlayer = 'No nearby players'
+	NoNearbyPlayer = 'No nearby players',
+	PocketFull = 'You got already this document in your pocket',
 }

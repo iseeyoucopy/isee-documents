@@ -8,24 +8,24 @@ author '@iseeyoucopy'
 shared_scripts {
     'config.lua',
 	'shared/locale.lua',
-	'languages/*.lua',
+	'languages/*.lua'
 }
 
 client_scripts {
-	'/client/main.lua',
+	'/client/main.lua'
 }
 
 server_scripts {
 	'@oxmysql/lib/MySQL.lua',
+	'server/dbupdater.lua',
 	'server/versioncheck.lua',
-	'server/dbUpdater.lua',
-	'server/main.lua',
+	'server/main.lua'
 }
 
 dependency {
 	'vorp_core',
-	'bcc-utils',
 	'feather-menu',
+	'bcc-utils'
 }
 
-version '0.0.2'
+version '1.0.0'
