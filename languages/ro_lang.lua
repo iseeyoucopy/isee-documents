@@ -7,7 +7,7 @@ Locales["ro_lang"] = {
 	ChangedPicture = 'Fotografia a fost schimabata pentru ',
 	InputPhotolink = 'Adauga link ',
 	PastePhotoLink = "Lipeste link-ul direct catre poza",
-	Submit = "Trimite",
+	Submit = "Submit",
 	CloseMenu = 'Inchide Meniul',
 	Confirm = 'Confirma',
 	Firstname = 'Prenume: ',
@@ -36,4 +36,6 @@ Locales["ro_lang"] = {
 	PutBack = 'Pune la loc ',
 	NoNearbyPlayer = 'Nici un jucator in apropiere',
 	PocketFull = 'Ai deja acest document in buzunar',
+	DocumentUpdated = 'Document actualizat',
+	DocumentUpdatdeFail = 'Nu s-a putut actualiza documentul'
  }

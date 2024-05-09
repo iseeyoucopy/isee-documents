@@ -23,8 +23,7 @@ for _, docType in ipairs(documentTypes) do
                         local doc = result[1]
                         TriggerClientEvent('isee-documents:client:opendocument', src, docType, doc.firstname, doc.lastname, doc.nickname, doc.job, doc.age, doc.gender, doc.date, doc.picture, doc.expire_date)
                     else
-                        print("No document found for type: " .. tostring(docType))
-                        TriggerClientEvent('isee-documents:client:noDocument', src)
+                        VORPcore.NotifyLeft(src, _U('GotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
                     end
                 end)
             else
@@ -80,11 +79,6 @@ end)
 
 RegisterServerEvent('isee-documents:server:reissueDocument')
 AddEventHandler('isee-documents:server:reissueDocument', function(docType)
-    --print("Received docType: ", docType)  -- Debug print
-    if docType == nil or Config.DocumentTypes[docType] == nil then
-        print("Invalid or missing docType")  -- More debug info
-        return
-    end
     local src = source
     local Character = VORPcore.getUser(src).getUsedCharacter
     local charidentifier = Character.charIdentifier
@@ -98,9 +92,17 @@ AddEventHandler('isee-documents:server:reissueDocument', function(docType)
             if Money >= docReissuePrice then
                 -- Check if the player can carry the document item
                 if exports.vorp_inventory:canCarryItems(src, 1) and exports.vorp_inventory:canCarryItem(src, docType, 1) then
-                    exports.vorp_inventory:addItem(src, docType, 1)
-                    Character.removeCurrency(0, docReissuePrice)
-                    VORPcore.NotifyLeft(src, _U('GotNewDocument') .. docReissuePrice ..'$', "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
+                    -- Update job and reissue document
+                    MySQL.update('UPDATE isee_documents SET job = ? WHERE charidentifier = ? AND doc_type = ?',
+                    {Character.jobLabel, charidentifier, docType}, function(affectedRows)
+                        if affectedRows > 0 then
+                            Character.removeCurrency(0, docReissuePrice)
+                            exports.vorp_inventory:addItem(src, docType, 1)
+                            VORPcore.NotifyLeft(src, _U('DocumentUpdated') .. docReissuePrice ..'$', "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
+                        else
+                            VORPcore.NotifyLeft(src, _U('DocumentUpdateFail'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
+                        end
+                    end)
                 else
                     VORPcore.NotifyLeft(src, _U('PocketFull'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
                 end
@@ -108,10 +110,11 @@ AddEventHandler('isee-documents:server:reissueDocument', function(docType)
                 VORPcore.NotifyLeft(src, _U('NotEnoughMoney'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
             end
         else
-        VORPcore.NotifyLeft(src, _U('GotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
+            VORPcore.NotifyLeft(src, _U('GotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
         end
     end)
 end)
+
 
 RegisterServerEvent('isee-documents:server:revokeDocument')
 AddEventHandler('isee-documents:server:revokeDocument', function(docType)
@@ -216,24 +219,22 @@ AddEventHandler('isee-documents:server:updateExpiryDate', function(docType, days
     local charidentifier = Character.charIdentifier
     local Money = Character.money
 
-    local extendChangePrice = Config.DocumentTypes[docType].extendPrice
+    local days = tonumber(daysToAdd) or 0  -- Convert daysToAdd to number, default to 0
+    local extendChangePricePerDay = Config.DocumentTypes[docType].extendPrice
+    local totalExtendPrice = extendChangePricePerDay * days  -- Total price based on the number of days
 
     -- Check if the document exists in the database
     MySQL.query('SELECT * FROM isee_documents WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
-        
         if result and result[1] then
-            if Money >= extendChangePrice then
-                local days = tonumber(daysToAdd) or 0  -- Convert daysToAdd to number, default to 0
-                local currentTime = os.time()          -- Get the current time in seconds since the epoch
-                local newExpiryDate = os.date('%Y-%m-%d %H:%M:%S', currentTime + (days * 86400))  -- Compute new expiry date with time
-                
-                -- Debug output to console
-                print("Added days: " .. days .. ", New Expiry Date with Time: " .. newExpiryDate)
-                
+            if Money >= totalExtendPrice then
+                local currentTime = os.time()  -- Get the current time in seconds since the epoch
+                local newExpiryDate = os.date('%Y-%m-%d %H:%M:%S', currentTime + (days * 86400))  -- Compute new expiry date
+
+                -- Update the expiry date in the database
                 MySQL.update('UPDATE isee_documents SET expire_date = ? WHERE charidentifier = ? AND doc_type = ?',
                               {newExpiryDate, charidentifier, docType}, function(affectedRows)
                     if affectedRows > 0 then
-                        Character.removeCurrency(0, extendChangePrice)
+                        Character.removeCurrency(0, totalExtendPrice)  -- Deduct the total cost from the player's currency
                         VORPcore.NotifyLeft(src, _U('ExpiryDateExtended') .. newExpiryDate, "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
                     else
                         VORPcore.NotifyLeft(src, _U('ExpiryDateUpdateFailed'), "", Config.Textures.cross[1], Config.Textures.cross[2], 4000)

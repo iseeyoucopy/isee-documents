@@ -36,4 +36,6 @@ Locales["en_lang"] = {
 	PutBack = 'Put Back ',
 	NoNearbyPlayer = 'No nearby players',
 	PocketFull = 'You got already this document in your pocket',
+	DocumentUpdated = 'Updated Document',
+	DocumentUpdateFail = 'Update document failed'
 }
