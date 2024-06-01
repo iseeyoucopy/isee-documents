@@ -1,7 +1,7 @@
 Config = {
     -- Language settings
     defaultlang = "en_lang", -- Set Your Language (Current Languages: "en_lang" English, "ro_lang" Romanian)
-
+	devMode = false, -- Set to 'true' to enable debug mode, 'false' to disable
     -- NPC and Blip settings
     DocumentBlips = true,
     DocumentNPC = true,

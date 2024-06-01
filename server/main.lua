@@ -1,58 +1,69 @@
 VORPcore = exports.vorp_core:GetCore()
 
--- Retrieve all document type keys from the Config.DocumentTypes table
-local documentTypes = {}
-for docType, _ in pairs(Config.DocumentTypes) do
-    table.insert(documentTypes, docType)
+-- Function to print debug information if devMode is enabled
+local function devPrint(...)
+    if Config.devMode then
+        print(...)
+    end
 end
 
--- Register each document type as a usable item
-for _, docType in ipairs(documentTypes) do
+-- Function to register a document type as a usable item
+local function registerDocumentType(docType)
     exports.vorp_inventory:registerUsableItem(docType, function(data)
-        local src = data.source
-        local User = VORPcore.getUser(src)
-
-        if User then
-            local Character = User.getUsedCharacter
-            if Character then
-                local charidentifier = Character.charIdentifier
-
-                -- SQL query to fetch document data based on character identifier and document type
-                MySQL.query('SELECT * FROM `isee_documents` WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
-                    if result and #result > 0 then
-                        local doc = result[1]
-                        TriggerClientEvent('isee-documents:client:opendocument', src, docType, doc.firstname, doc.lastname, doc.nickname, doc.job, doc.age, doc.gender, doc.date, doc.picture, doc.expire_date)
-                    else
-                        VORPcore.NotifyLeft(src, _U('GotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
-                    end
-                end)
-            else
-                print("Error: Character data not found.")
-            end
-        else
-            print("Error: User not found for source.")
-        end
-        exports.vorp_inventory:closeInventory(src)
+        handleDocumentUse(data.source, docType)
     end)
 end
 
+-- Function to handle the usage of a document
+function handleDocumentUse(src, docType)
+    local User = VORPcore.getUser(src)
+
+    if User then
+        local Character = User.getUsedCharacter
+        if Character then
+            local charidentifier = Character.charIdentifier
+            devPrint("Checking document for user:", charidentifier, "docType:", docType)
+
+            MySQL.query('SELECT * FROM `isee_documents` WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
+                if result and #result > 0 then
+                    local doc = result[1]
+                    devPrint("Document found:", doc)
+                    TriggerClientEvent('isee-documents:client:opendocument', src, docType, doc.firstname, doc.lastname, doc.nickname, doc.job, doc.age, doc.gender, doc.date, doc.picture, doc.expire_date)
+                else
+                    devPrint("No document found for user:", charidentifier, "docType:", docType)
+                    VORPcore.NotifyLeft(src, _U('GotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
+                end
+            end)
+        else
+            devPrint("Error: Character data not found for user:", src)
+        end
+    else
+        devPrint("Error: User not found for source:", src)
+    end
+    exports.vorp_inventory:closeInventory(src)
+end
+
+-- Iterate over each document type and register it
+for docType, _ in pairs(Config.DocumentTypes) do
+    registerDocumentType(docType)
+end
+
+-- Register other server events
 RegisterServerEvent('isee-documents:server:createDocument')
 AddEventHandler('isee-documents:server:createDocument', function(docType)
     local src = source
     local Character = VORPcore.getUser(src).getUsedCharacter
     local charidentifier = Character.charIdentifier
     local Money = Character.money
-    local price = Config.DocumentTypes[docType].price -- Access the price for the specific document type
-
-    -- Create a date string
-    local date, newExpiryDate = os.date('%Y-%m-%d %H:%M:%S')  -- Standard SQL datetime format
-
-    -- Default picture, assuming you have a default image for each document type in Config
+    local price = Config.DocumentTypes[docType].price
+    local date, newExpiryDate = os.date('%Y-%m-%d %H:%M:%S')
     local picture = Config.DocumentTypes[docType].defaultPicture
+
+    devPrint("Creating document for user:", charidentifier, "docType:", docType)
 
     MySQL.query('SELECT * FROM isee_documents WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
         if result and result[1] then
-            VORPcore.NotifyLeft(src, _U('AlreadyGotDocument'), "", Config.Textures.tick[1], Config.Textures.tick[2], 5000) -- Assumes translation for a generic document
+            VORPcore.NotifyLeft(src, _U('AlreadyGotDocument'), "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
         else
             if Money >= price then
                 if exports.vorp_inventory:canCarryItems(src, 1) and exports.vorp_inventory:canCarryItem(src, docType, 1) then
@@ -85,20 +96,18 @@ AddEventHandler('isee-documents:server:reissueDocument', function(docType)
     local Money = Character.money
     local docReissuePrice = Config.DocumentTypes[docType].reissuePrice
 
-    -- Check if the document exists in the database
+    devPrint("Reissuing document for user:", charidentifier, "docType:", docType)
+
     MySQL.query('SELECT * FROM isee_documents WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
         if result and result[1] then
-            -- Check if the player has enough money to pay for the reissue fee
             if Money >= docReissuePrice then
-                -- Check if the player can carry the document item
                 if exports.vorp_inventory:canCarryItems(src, 1) and exports.vorp_inventory:canCarryItem(src, docType, 1) then
-                    -- Update job and reissue document
                     MySQL.update('UPDATE isee_documents SET job = ? WHERE charidentifier = ? AND doc_type = ?',
                     {Character.jobLabel, charidentifier, docType}, function(affectedRows)
                         if affectedRows > 0 then
                             Character.removeCurrency(0, docReissuePrice)
                             exports.vorp_inventory:addItem(src, docType, 1)
-                            VORPcore.NotifyLeft(src, _U('DocumentUpdated') .. docReissuePrice ..'$', "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
+                            VORPcore.NotifyLeft(src, _U('DocumentUpdated') .. docReissuePrice .. '$', "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
                         else
                             VORPcore.NotifyLeft(src, _U('DocumentUpdateFail'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
                         end
@@ -115,39 +124,32 @@ AddEventHandler('isee-documents:server:reissueDocument', function(docType)
     end)
 end)
 
+RegisterServerEvent('isee-documents:server:revokeMyDocument')
+AddEventHandler('isee-documents:server:revokeMyDocument', function(docType)
+    if not docType or docType == '' then
+        devPrint("Error: docType is nil or empty")
+        return
+    end
 
-RegisterServerEvent('isee-documents:server:revokeDocument')
-AddEventHandler('isee-documents:server:revokeDocument', function(docType)
     local src = source
     local Character = VORPcore.getUser(src).getUsedCharacter
-    local MyPedId = GetPlayerPed(src)
-    local MyCoords = GetEntityCoords(MyPedId)
 
-    for _, player in ipairs(GetPlayers()) do
-        local ClosestCharacter = VORPcore.getUser(player).getUsedCharacter
-        local PlayerPedId = GetPlayerPed(player)
-        local PlayerCoords = GetEntityCoords(PlayerPedId)
-        local Dist = #(MyCoords - PlayerCoords)
+    if Character then
+        local charidentifier = Character.charIdentifier
+        devPrint("Revoking document for user:", charidentifier, "docType:", docType)
 
-        if Dist > 0.3 and Dist < 3.0 then
-            local closestidentifier = ClosestCharacter.identifier
-            MySQL.query('SELECT * FROM isee_documents WHERE identifier = ? AND doc_type = ?', {closestidentifier, docType}, function(result)
-                if result[1] ~= nil then
-                    MySQL.execute('DELETE FROM isee_documents WHERE identifier = ? AND doc_type = ?', {closestidentifier, docType}, function()
-                        local itemCount = exports.vorp_inventory:getItemCount(player, docType)
-                        if itemCount > 0 then
-                            exports.vorp_inventory:subItem(player, docType, 1)
-                        end
-                        VORPcore.NotifyLeft(src, _U('YouRevokedDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 4000)
-                        VORPcore.NotifyLeft(src, _U('RevokedDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 4000)
-                    end)
-                else
-                    VORPcore.NotifyLeft(src, _U('PlayerGotNoDocument'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
-                end
-            end)
-        elseif Dist >= 3.0 then
-            VORPcore.NotifyLeft(src, _U('NoNearbyPlayer'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
-        end
+        MySQL.query('SELECT * FROM isee_documents WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
+            if result and result[1] then
+                MySQL.execute('DELETE FROM isee_documents WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function()
+                    exports.vorp_inventory:subItem(src, docType, 1)
+                    VORPcore.NotifyLeft(src, "Ti-ai anulat documentul", "", Config.Textures.cross[1], Config.Textures.cross[2], 4000)
+                end)
+            else
+                VORPcore.NotifyLeft(src, "Nu ai un document de anulat", "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
+            end
+        end)
+    else
+        VORPcore.NotifyLeft(src, "No character found", "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
     end
 end)
 
@@ -157,18 +159,15 @@ AddEventHandler('isee-documents:server:changeDocumentPhoto', function(docType, p
     local Character = VORPcore.getUser(src).getUsedCharacter
     local charidentifier = Character.charIdentifier
     local Money = Character.money
-
-    -- Access the changePhotoPrice using the correct path
     local photoChangePrice = Config.DocumentTypes[docType].changePhotoPrice
 
-    -- Check if the document exists in the database
+    devPrint("Changing document photo for user:", charidentifier, "docType:", docType, "photoLink:", photoLink)
+
     MySQL.query('SELECT * FROM isee_documents WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
         if result and result[1] then
-            -- Check if the player has enough money to pay for the photo change fee
             if Money >= photoChangePrice then
                 Character.removeCurrency(0, photoChangePrice)
-                VORPcore.NotifyLeft(src, _U('ChangedPicture') .. photoChangePrice ..'$', "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
-                -- Update the photo in the database
+                VORPcore.NotifyLeft(src, _U('ChangedPicture') .. photoChangePrice .. '$', "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
                 MySQL.update('UPDATE isee_documents SET picture = ? WHERE charidentifier = ? AND doc_type = ?', {photoLink, charidentifier, docType})
             else
                 VORPcore.NotifyLeft(src, _U('NotEnoughMoney'), "", Config.Textures.cross[1], Config.Textures.cross[2], 4000)
@@ -186,11 +185,14 @@ AddEventHandler('isee-documents:server:showDocumentClosestPlayer', function(docT
     local charidentifier = Character.charIdentifier
     local MyPedId = GetPlayerPed(src)
     local MyCoords = GetEntityCoords(MyPedId)
+
+    devPrint("Showing document to closest player for user:", charidentifier, "docType:", docType)
+
     MySQL.query('SELECT * FROM `isee_documents` WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
         if result and #result > 0 then
             local doc = result[1]
             local closestPlayer, closestDistance = nil, math.huge
-            local newExpiryDate = os.date('%Y-%m-%d %H:%M:%S') 
+
             for _, playerId in ipairs(GetPlayers()) do
                 local playerPedId = GetPlayerPed(playerId)
                 local playerCoords = GetEntityCoords(playerPedId)
@@ -202,6 +204,7 @@ AddEventHandler('isee-documents:server:showDocumentClosestPlayer', function(docT
             end
 
             if closestPlayer then
+                devPrint("Found closest player:", closestPlayer)
                 TriggerClientEvent('isee-documents:client:showdocument', closestPlayer, docType, doc.firstname, doc.lastname, doc.nickname, doc.job, doc.age, doc.gender, doc.date, doc.picture, doc.expire_date)
             else
                 VORPcore.NotifyLeft(src, _U('NoNearbyPlayer'), "", Config.Textures.cross[1], Config.Textures.cross[2], 5000)
@@ -212,6 +215,16 @@ AddEventHandler('isee-documents:server:showDocumentClosestPlayer', function(docT
     end)
 end)
 
+RegisterServerEvent('isee-documents:server:showDocumentToPlayer')
+AddEventHandler('isee-documents:server:showDocumentToPlayer', function(targetPlayerId, docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
+    local src = source
+    local Character = VORPcore.getUser(src).getUsedCharacter
+    if Character then
+        devPrint("Showing document to player ID:", targetPlayerId)
+        TriggerClientEvent('isee-documents:client:showdocument', targetPlayerId, docType, firstname, lastname, nickname, job, age, gender, date, picture, expire_date)
+    end
+end)
+
 RegisterNetEvent('isee-documents:server:updateExpiryDate')
 AddEventHandler('isee-documents:server:updateExpiryDate', function(docType, daysToAdd)
     local src = source
@@ -219,22 +232,21 @@ AddEventHandler('isee-documents:server:updateExpiryDate', function(docType, days
     local charidentifier = Character.charIdentifier
     local Money = Character.money
 
-    local days = tonumber(daysToAdd) or 0  -- Convert daysToAdd to number, default to 0
+    local days = tonumber(daysToAdd) or 0
     local extendChangePricePerDay = Config.DocumentTypes[docType].extendPrice
-    local totalExtendPrice = extendChangePricePerDay * days  -- Total price based on the number of days
+    local totalExtendPrice = extendChangePricePerDay * days
 
-    -- Check if the document exists in the database
+    devPrint("Updating expiry date for user:", charidentifier, "docType:", docType, "daysToAdd:", daysToAdd)
+
     MySQL.query('SELECT * FROM isee_documents WHERE charidentifier = ? AND doc_type = ?', {charidentifier, docType}, function(result)
         if result and result[1] then
             if Money >= totalExtendPrice then
-                local currentTime = os.time()  -- Get the current time in seconds since the epoch
-                local newExpiryDate = os.date('%Y-%m-%d %H:%M:%S', currentTime + (days * 86400))  -- Compute new expiry date
+                local currentTime = os.time()
+                local newExpiryDate = os.date('%Y-%m-%d %H:%M:%S', currentTime + (days * 86400))
 
-                -- Update the expiry date in the database
-                MySQL.update('UPDATE isee_documents SET expire_date = ? WHERE charidentifier = ? AND doc_type = ?',
-                              {newExpiryDate, charidentifier, docType}, function(affectedRows)
+                MySQL.update('UPDATE isee_documents SET expire_date = ? WHERE charidentifier = ? AND doc_type = ?', {newExpiryDate, charidentifier, docType}, function(affectedRows)
                     if affectedRows > 0 then
-                        Character.removeCurrency(0, totalExtendPrice)  -- Deduct the total cost from the player's currency
+                        Character.removeCurrency(0, totalExtendPrice)
                         VORPcore.NotifyLeft(src, _U('ExpiryDateExtended') .. newExpiryDate, "", Config.Textures.tick[1], Config.Textures.tick[2], 5000)
                     else
                         VORPcore.NotifyLeft(src, _U('ExpiryDateUpdateFailed'), "", Config.Textures.cross[1], Config.Textures.cross[2], 4000)

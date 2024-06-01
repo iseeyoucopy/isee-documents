@@ -16,6 +16,7 @@ Locales["en_lang"] = {
 	Job = 'Occupation: ',
 	Age = 'Age: ',
 	Gender = 'Gender: ',
+	ChoosePlayer = 'Choose Player:',
 	CreationDate = 'Issue Date: ',
 	NotEnoughMoney = 'Not enough Money',
 	RegisterDoc = 'Register Document',
@@ -37,5 +38,8 @@ Locales["en_lang"] = {
 	NoNearbyPlayer = 'No nearby players',
 	PocketFull = 'You got already this document in your pocket',
 	DocumentUpdated = 'Updated Document',
-	DocumentUpdateFail = 'Update document failed'
+	DocumentUpdateFail = 'Update document failed',
+	RevokeDocument= 'Revoke Document',
+	YouRevokedDocument = 'You have revoked your document',
+	DontHaveToRevoke = 'You dont have a document to revoke',
 }

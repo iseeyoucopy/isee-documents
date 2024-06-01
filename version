@@ -1,3 +1,6 @@
-<0.0.3>
-- Added some generated images for all this documents
-- Added mysql query in dbUpdater for items
+<1.0.3>
+- Minor updates
+- Refactor server file
+- Added devMode
+- Nearby player list
+- Added Revoke Document
