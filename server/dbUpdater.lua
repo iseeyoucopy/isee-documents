@@ -12,7 +12,7 @@ CreateThread(function()
             `gender` varchar(50) DEFAULT NULL,
             `date` varchar(50) NOT NULL,
             `picture` longtext DEFAULT NULL,
-            `expire_date` date DEFAULT NULL
+            `expire_date` varchar(50) DEFAULT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
     ]])
     
